@@ -1,0 +1,209 @@
+// topics/wifi_halow.js
+
+window.__QUIZ_QUESTIONS__ = window.__QUIZ_QUESTIONS__ || [];
+window.__QUIZ_QUESTIONS__.push(
+
+  // ── WiFi Fundamentals ─────────────────────────────────────────────────────
+  {
+    topic: "WiFi & HaLow",
+    q: "Select the true statements for WiFi",
+    opts: [
+      "Its frequency ranges from 2.4Ghz to 2.5Ghz",
+      "The 5Ghz Band has a 150Mhz bandwidth",
+      "The 2.4Ghz Band has a 150Mhz bandwidth",
+      "Its frequency ranges from 5Ghz to 5.15Ghz"
+    ],
+    ans: [0, 1],
+    exp: "WiFi's 2.4GHz band spans 2.4–2.5GHz (100MHz wide). The 5GHz band has a 150MHz bandwidth. The 2.4GHz band does NOT have 150MHz bandwidth, and 5GHz does not start at 5.15GHz."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "How many overlapping WiFi channels are there for 2.4Ghz Band?",
+    opts: ["14", "3", "12", "11"],
+    ans: 3,
+    exp: "The 2.4GHz band has 11 overlapping channels (in most regions). Only 3 of them are non-overlapping (channels 1, 6, and 11)."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "Which if the following channel access technique is used in HaLow?",
+    opts: [
+      "Carrier Sense Multiple Access with Collision Prevention",
+      "Carrier Sense Multiple Access with Collision Detection",
+      "Carrier Sense Multiple Access with Collision Avoidance",
+      "Carrier Sense Multiple Access with Collision Anticipation"
+    ],
+    ans: 2,
+    exp: "HaLow (802.11ah), like all 802.11 Wi-Fi standards, uses CSMA/CA (Carrier Sense Multiple Access with Collision Avoidance) for channel access."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "Using which one of the following parameters will the modulation and coding scheme be decided?",
+    opts: [
+      "Wireless Communication technique",
+      "Data Transmission Rate",
+      "None of the options are correct.",
+      "Signal to Noise Ratio"
+    ],
+    ans: 3,
+    exp: "The modulation and coding scheme (MCS) is selected based on the Signal to Noise Ratio (SNR) — a higher SNR allows higher-order modulation and faster data rates."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "Select the standards that are typically common across IEEE 802.",
+    opts: [
+      "802.2 Logical Link Control",
+      "802.16 WiMAX",
+      "802.17 Resilient Packet Ring",
+      "802.1 Bridging",
+      "802.3 Ethernet"
+    ],
+    ans: [0, 3],
+    exp: "802.2 (Logical Link Control) and 802.1 (Bridging) are common foundational standards that apply across the IEEE 802 family. The others are technology-specific standards."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "All 802.11 devices are compatible with each other.",
+    opts: ["True", "False"],
+    ans: 1,
+    exp: "False — 802.11 devices are not always backward compatible. Different amendments (e.g., 802.11a vs 802.11b) operate on different frequencies and may not interoperate."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "The \"Data Unit\" get larger as it goes _____ the OSI stack.",
+    opts: ["down", "up", "crisscross", "across"],
+    ans: 0,
+    exp: "As data moves down the OSI stack, each layer adds its own header (encapsulation), making the data unit progressively larger from Application down to Physical."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "Which of the following is included in the beacon to notify stations about the buffered frames?",
+    opts: ["Traffic Indication Map", "Traffic Notification Map", "Traffic Intimation Map", "Traffic Availability Map"],
+    ans: 0,
+    exp: "The Traffic Indication Map (TIM) is included in 802.11 beacon frames to inform power-saving stations which of them have buffered frames waiting at the Access Point."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "Which of the following packets help in solving the hidden node problem in 802.11 networks? (You can select more than one answer)",
+    opts: [
+      "Clear to Share Packet",
+      "Clear To Send Packet",
+      "Request To Send Packet",
+      "Acknowledgement Packets",
+      "Request to Share Packet"
+    ],
+    ans: [1, 2],
+    exp: "The RTS/CTS (Request To Send / Clear To Send) handshake solves the hidden node problem by reserving the channel before data transmission, so hidden nodes know to defer."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "Which of the following power management modes are available for stations in 802.11 networks? (You can choose more than one answer)",
+    opts: ["Active Mode", "Power Save Mode", "Awake Mode", "Doze Mode"],
+    ans: [0, 1],
+    exp: "802.11 defines two power management modes: Active Mode (station stays awake continuously) and Power Save Mode (station alternates between doze and awake states)."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "Which of the following frames are transmitted by a node when it is attempting to join a Basic Service Set using passive scanning? (You can select more than one)",
+    opts: [
+      "Association Request Frame",
+      "Association Response Frame",
+      "Probe Request Frame",
+      "Probe Response Frame"
+    ],
+    ans: [0],
+    exp: "In passive scanning, the node listens for Beacon frames (sent by the AP) and then sends an Association Request Frame. No Probe Request is needed — that is used in active scanning."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "Which of the frames are transmitted by the Access Point when a node is attempting to join a Basic Service Set using active scanning? (You can select more than one)",
+    opts: [
+      "Probe Request Frame",
+      "Probe Response Frame",
+      "Association Response Frame",
+      "Association Request Frame"
+    ],
+    ans: [1, 2],
+    exp: "In active scanning, the AP responds with a Probe Response Frame (to the node's Probe Request), and later sends an Association Response Frame (to the node's Association Request)."
+  },
+
+  // ── HaLow (802.11ah) Specifics ────────────────────────────────────────────
+  {
+    topic: "WiFi & HaLow",
+    q: "WiFi HaLow is also known as?",
+    opts: ["802.11ac", "802.11ah", "802.11f", "802.11ax"],
+    ans: 1,
+    exp: "WiFi HaLow is the branding name for the IEEE 802.11ah standard, designed for IoT applications with sub-1GHz operation, extended range, and low power."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "Which standard does HaLow follow for wireless communication?",
+    opts: ["802.11n", "802.11b", "802.11ah", "802.11ac"],
+    ans: 2,
+    exp: "HaLow follows the IEEE 802.11ah standard — a Wi-Fi amendment specifically designed for IoT, operating below 1GHz for longer range and lower power consumption."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "What is the operating frequency of HaLow?",
+    opts: ["900 Hz", "5 Ghz", "2.4 Ghz", "Sub-1 Ghz"],
+    ans: 3,
+    exp: "HaLow operates in the Sub-1GHz band (around 900MHz), which gives it better range and wall penetration compared to the 2.4GHz and 5GHz bands used by traditional Wi-Fi."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "What is the typical range of HaLow compared to traditional Wi-Fi?",
+    opts: ["Shorter range", "Longer range", "Unlimited range", "Same range"],
+    ans: 1,
+    exp: "HaLow achieves a much longer range than traditional Wi-Fi (up to ~1km) because sub-1GHz signals propagate further and penetrate obstacles more effectively."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "What is the main advantages of HaLow over traditional Wi-Fi technologies?",
+    opts: ["Better security", "Lower power consumption", "Faster speeds", "Greater range"],
+    ans: [1, 3],
+    exp: "HaLow's key advantages over traditional Wi-Fi are its lower power consumption (ideal for battery-powered IoT devices) and greater range due to sub-1GHz operation."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "Which of the following frames use the Null Data Packet (NDP) MAC frame structure in 802.11ah? (You can select more than one)",
+    opts: ["RTS", "CTS", "ACK", "PS-Poll Frame", "Beacons"],
+    ans: [0, 1, 2, 3],
+    exp: "In 802.11ah, RTS, CTS, ACK, and PS-Poll frames all use the compact Null Data Packet (NDP) frame format to reduce overhead and save power. Beacons do not use NDP format."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "Which of the following are advantages of using Relays in HaLow? (select the correct answers)",
+    opts: [
+      "When a relay is present, the devices do not require to exchange data with the Root Access point.",
+      "Relays enable the devices to transmit at high data rate.",
+      "Relays require the devices to transmit at a lower data rate thereby consuming low power.",
+      "Relays improve reliability of data transmission."
+    ],
+    ans: [1, 3],
+    exp: "Relays in HaLow allow devices to transmit at higher data rates (by shortening the effective distance to the AP) and improve reliability by providing alternative paths for data."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "How does HaLow address the shortage of Duration/ID field that is required for Network Allocation Vector?",
+    opts: [
+      "HaLow does not need any such mechanism as the length of the data payload is fixed.",
+      "HaLow uses a mechanism called Response Indication Deferral.",
+      "HaLow uses the Association ID for determining the length of the frame.",
+      "HaLow introduced the Restricted Access Window mechanism for the same."
+    ],
+    ans: 1,
+    exp: "HaLow uses Response Indication Deferral (RID) to communicate NAV duration information when the standard Duration/ID field is insufficient for sub-1GHz NDP frames."
+  },
+  {
+    topic: "WiFi & HaLow",
+    q: "Consider the following two statements and select the appropriate option below: Statement A: Centralized and Distributed Authentication Control are introduced in HaLow to overcome collisions between the devices in the network. Statement B: HaLow introduced mechanisms to limit the set of devices accessing the channel and to spread their access attempts over a long period of time.",
+    opts: [
+      "Statement B is true, but Statement A is false.",
+      "Both Statements are false.",
+      "Statements A and B are true.",
+      "Statement A is true, but Statement B is false."
+    ],
+    ans: 0,
+    exp: "Statement B is true — HaLow uses Restricted Access Window (RAW) and Target Wake Time (TWT) to limit and spread device access attempts. Statement A is false — Centralized/Distributed Authentication Control is not introduced for collision avoidance."
+  },
+
+);
