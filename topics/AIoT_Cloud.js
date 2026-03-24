@@ -1,0 +1,190 @@
+// topics/aiot_cloud.js
+
+window.__QUIZ_QUESTIONS__ = window.__QUIZ_QUESTIONS__ || [];
+window.__QUIZ_QUESTIONS__.push(
+
+  // ── Cloud Computing ────────────────────────────────────────────────────────
+  {
+    topic: "AIoT & Cloud",
+    q: "What is Cloud Computing?",
+    opts: [
+      "It is a way to store data on your local computer.",
+      "It is a way to physically connect multiple computers together.",
+      "It is a way to protect data from unauthorized access.",
+      "It is a way to access software and services over the internet."
+    ],
+    ans: 3,
+    exp: "Cloud Computing is the delivery of computing services — including software, storage, and processing — over the internet on demand."
+  },
+  {
+    topic: "AIoT & Cloud",
+    q: "Which of the following is a benefit of cloud computing?",
+    opts: ["Limited data accessibility", "Lower maintenance costs", "Limited scalability", "Higher upfront costs"],
+    ans: 1,
+    exp: "Cloud computing reduces maintenance costs by offloading hardware management, updates, and infrastructure upkeep to the cloud provider."
+  },
+  {
+    topic: "AIoT & Cloud",
+    q: "Base on the lecture, which of the following is NOT an advantage of Cloud Computing?",
+    opts: ["Integration", "Management", "Virtualization", "Resilient"],
+    ans: 0,
+    exp: "According to the lecture, Integration is not listed as a cloud computing advantage. Management, Virtualization, and Resilience are cited advantages."
+  },
+  {
+    topic: "AIoT & Cloud",
+    q: "Which if the following is NOT a Cloud Service Model?",
+    opts: ["Virtualization as a Service", "Infrastructure as a Service", "Platform as a Service", "Software as a Service"],
+    ans: 0,
+    exp: "The three standard Cloud Service Models are IaaS, PaaS, and SaaS. 'Virtualization as a Service' is not a recognised cloud service model."
+  },
+  {
+    topic: "AIoT & Cloud",
+    q: "What is IaaS?",
+    opts: ["Infrastructure as a Service", "Intelligence as a Service", "Interaction as a Service", "Internet as a Service"],
+    ans: 0,
+    exp: "IaaS stands for Infrastructure as a Service — it provides virtualised computing resources such as servers, storage, and networking over the internet."
+  },
+  {
+    topic: "AIoT & Cloud",
+    q: "What is the name of the cloud service model that provides access to software applications over the internet?",
+    opts: ["Software as a Service (SaaS)", "Infrastructure as a Service (IaaS)", "Function as a Service (FaaS)", "Platform as a Service (PaaS)"],
+    ans: 0,
+    exp: "SaaS (Software as a Service) delivers software applications over the internet, eliminating the need for local installation and maintenance."
+  },
+  {
+    topic: "AIoT & Cloud",
+    q: "Match the following services to the components that are NOT managed by the Cloud operator (e.g. Microsoft)?",
+    type: "match",
+    pairs: [
+      { term: "On Premises",  match: "Networking, Storage, Servers, Virtualization, OS, Middleware, Runtime, Data and Applications." },
+      { term: "IaaS",         match: "OS, Middleware, Runtime, Data and Applications." },
+      { term: "PaaS",         match: "Data and Applications." },
+      { term: "SaaS",         match: "Nil" },
+    ],
+    exp: "On Premises: user manages everything. IaaS: user manages from OS up. PaaS: user manages Data and Applications. SaaS: cloud manages everything (user manages Nil)."
+  },
+
+  // ── Edge & Fog Computing ───────────────────────────────────────────────────
+  {
+    topic: "AIoT & Cloud",
+    q: "Match the Edge computing platforms to how they perform inferencing on the device.",
+    type: "match",
+    pairs: [
+      { term: "CPU-centric", match: "Raspberry Pi" },
+      { term: "GPU-centric", match: "NVidia Jetson" },
+    ],
+    exp: "Raspberry Pi is a CPU-centric edge platform used for lightweight inferencing. NVidia Jetson is GPU-centric, designed for intensive AI inferencing at the edge."
+  },
+  {
+    topic: "AIoT & Cloud",
+    q: "Which of the following is NOT an advantage of Edge Computing?",
+    opts: [
+      "Significantly reduced data storage requirements",
+      "Faster response time",
+      "Reduces Network Bandwidth Requirements",
+      "Low investment cost"
+    ],
+    ans: 3,
+    exp: "Edge computing typically requires higher upfront investment for distributed hardware. Low investment cost is not an advantage — it is actually a challenge."
+  },
+  {
+    topic: "AIoT & Cloud",
+    q: "Based on the lecture, which of the following is not a typical deployment challenge for Edge computing devices.",
+    opts: ["Sound proofing", "Waterproofing", "Power", "Thermal"],
+    ans: 0,
+    exp: "Typical deployment challenges for edge devices include waterproofing, power supply, and thermal management. Sound proofing is not a typical challenge."
+  },
+  {
+    topic: "AIoT & Cloud",
+    q: "Which if the following is TRUE about Fog Computing?",
+    opts: [
+      "Fog computing is a separate architecture that can replace cloud computing.",
+      "Cloud is a centralized system, while the fog is a distributed decentralized infrastructure",
+      "Fog computing are located nearer to the Cloud computing",
+      "Fog provides low latency"
+    ],
+    ans: [1, 3],
+    exp: "Both are true: Cloud is centralised while Fog is a distributed decentralised layer closer to devices; and Fog Computing provides low latency by processing data near the source."
+  },
+
+  // ── Virtualisation & Hypervisors ───────────────────────────────────────────
+  {
+    topic: "AIoT & Cloud",
+    q: "Which if the following statement is FALSE?",
+    opts: [
+      "Type 2 Hypervisor use host OS.",
+      "Type 1 Hypervisor do not use host OS.",
+      "Type 2 Hypervisor are also known as Bare metal hypervisor.",
+      "Type 1 Hypervisor are also known as Bare metal hypervisor."
+    ],
+    ans: 2,
+    exp: "Type 2 Hypervisors (e.g. VirtualBox) run on top of a host OS — they are NOT bare metal. Type 1 Hypervisors (e.g. VMware ESXi) run directly on hardware and are known as bare metal hypervisors."
+  },
+
+  // ── AIoT ──────────────────────────────────────────────────────────────────
+  {
+    topic: "AIoT & Cloud",
+    q: "AIoT stands for?",
+    opts: ["Artificial Intelligence on IoT", "Artificial Intelligence of Things", "Advanced IoT", "Artificial Internet of Things"],
+    ans: 0,
+    exp: "AIoT stands for Artificial Intelligence on IoT — the combination of AI capabilities with IoT infrastructure."
+  },
+  {
+    topic: "AIoT & Cloud",
+    q: "IIoT stands for Industrial IoT.",
+    opts: ["True", "False"],
+    ans: 0,
+    exp: "True — IIoT (Industrial Internet of Things) refers to the application of IoT technologies in industrial sectors such as manufacturing, energy, and logistics."
+  },
+  {
+    topic: "AIoT & Cloud",
+    q: "What is the purpose of AIoT?",
+    opts: [
+      "To improve the design of IoT devices",
+      "To integrate artificial intelligence with the internet of things",
+      "To replace IoT devices with AI-powered devices",
+      "To create a secure network for IoT devices"
+    ],
+    ans: 1,
+    exp: "The purpose of AIoT is to integrate AI with IoT, enabling devices to analyse data, learn patterns, and make intelligent decisions autonomously."
+  },
+  {
+    topic: "AIoT & Cloud",
+    q: "Which of the following is not a benefit of AIoT? (pick the best answer)",
+    opts: ["Decreased complexity", "Increased productivity", "Improved energy efficiency", "Enhanced security"],
+    ans: 0,
+    exp: "AIoT actually increases complexity due to the integration of AI models, connectivity, and data pipelines. Productivity, energy efficiency, and security are genuine AIoT benefits."
+  },
+  {
+    topic: "AIoT & Cloud",
+    q: "Which of the following is a limitation of AIoT?",
+    opts: [
+      "It requires a high degree of technical expertise to implement",
+      "It can be expensive to implement",
+      "It is only suitable for large-scale applications",
+      "It is limited by the processing power of IoT devices"
+    ],
+    ans: 1,
+    exp: "The cost of integrating AI models, cloud infrastructure, and IoT hardware makes AIoT expensive to implement — this is a recognised limitation."
+  },
+  {
+    topic: "AIoT & Cloud",
+    q: "Which of the following is a good example of an AIoT application?",
+    opts: [
+      "A wearable device that tracks your steps and calories burned",
+      "A smart home thermostat that learns your preferences over time",
+      "A wireless security camera that sends alerts to your smartphone",
+      "A fitness tracker that monitors your heart rate and sleep patterns"
+    ],
+    ans: 1,
+    exp: "A thermostat that learns preferences uses machine learning (AI) on IoT sensor data — this is a true AIoT application. The others are standard IoT devices without AI learning."
+  },
+  {
+    topic: "AIoT & Cloud",
+    q: "Which of the following is not a potential use case for AIoT in industrial automation?",
+    opts: ["Quality control", "Employee time tracking", "Inventory management", "Predictive maintenance"],
+    ans: 1,
+    exp: "Employee time tracking is an HR function, not industrial automation. Quality control, inventory management, and predictive maintenance are all core AIoT industrial automation use cases."
+  },
+
+);
