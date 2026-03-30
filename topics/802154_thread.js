@@ -199,4 +199,26 @@ window.__QUIZ_QUESTIONS__.push(
     exp: "Available payload = 127 − 25 − 21 − 10 = 71 bytes per frame. Since Thread supports fragmentation and reassembly, payloads larger than 71 bytes (80, 120, 127) can also be transmitted across multiple frames — so all options are valid."
   },
 
+  {
+    topic: "802.15.4 & Thread",
+    q: "Consider an IEEE 802.15.4 network using Beacon-enabled CSMA/CA. Given this, choose which of the following statements are false:",
+    opts: ["Devices can sleep during the inactive interval of the beacon interval.", "Contention Free Period is reserved for real-time services.", "Contention Access Period is reserved for real-time services.", "Contention Free Perios uses slotted CSMA.", "Contention Access Period uses slotted CSMA.", "A part of the beacon interval is busy as coordinator requires it to send out MAC command packets."],
+    ans: [2, 3, 5],
+    exp: "In a beacon-enabled IEEE 802.15.4 network, the Contention Free Period is reserved for real-time services and uses slotted CSMA/CA. The Contention Access Period is for non-real-time services and uses unslotted CSMA/CA. Devices can sleep during the inactive interval, and the coordinator may use part of the beacon interval to send MAC command packets."
+  },
+  {
+    topic: "802.15.4 & Thread",
+    q: "If the EUI64 address of a device is 62::1, what would be its link local IPv6 address. Assume 6LowPAN protocol.",
+    opts: ["FE80:0:0:0:60::1", "FE80:0:0:0:62::1", "FE80:0:0:0:22:1", "FE80:0:0:0:66:1", "None of the above"],
+    ans: 2,
+    exp: "In 6LowPAN, the link-local address is formed by embedding the EUI-64 address into the FE80::/64 prefix. The EUI-64 address 62::1 is converted to binary, and the Universal/Local (U/L) bit is set to 1 (indicating a locally administered address). The resulting link-local address is FE80:0:0:0:22:1."
+  },
+  {
+    topic: "802.15.4 & Thread",
+    q: "Which of the following is not a characteristic of Thread?",
+    opts: ["Devices can easily join the network", "Thread can support large networks", "There is no single point of failure", "All the options are characteristics of Thread", "The range of the network is more than enough to cover a home."],
+    ans: 0,
+    exp: "While Thread is designed to be easy to join, the process still requires commissioning and authentication steps that may not be considered 'easy' for all users. The other options are true characteristics of Thread: it can support large networks, has no single point of failure due to its mesh architecture, and is designed to cover typical home environments."
+  },
+
 );
