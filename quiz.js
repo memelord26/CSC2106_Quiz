@@ -1,12 +1,15 @@
 // quiz.js — core engine
 
+const STORAGE_KEY = 'iotQuizState';
+
 // ── State ─────────────────────────────────────────────────────────────────────
 let allQuestions    = [];   // flat pool of every question (topic field injected)
 let activeQuestions = [];   // current quiz subset, shuffled
 let current = 0, score = 0, answered = false;
 let topicScores = {};
+let userAnswers = [];       // [{qIdx, isCorrect, givenLabel, correctLabel}]
 
-// per-question shuffle state
+// per-question shuffle state (not persisted — regenerated on resume)
 let _shuffledOpts = [];
 let _shuffledAns  = null;   // number | number[]
 let _matchDescs   = [];     // shuffled description texts for "match" questions
@@ -31,7 +34,37 @@ async function loadTopics() {
       </p>`;
     return;
   }
-  showTopicSelect();
+
+  const saved = loadState();
+  if (saved) {
+    showTopicSelect(saved);
+  } else {
+    showTopicSelect();
+  }
+}
+
+// ── Persistence ───────────────────────────────────────────────────────────────
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      activeQuestions,
+      current,
+      score,
+      topicScores,
+      userAnswers,
+    }));
+  } catch (_) { /* storage full or unavailable — silently ignore */ }
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) { return null; }
+}
+
+function clearState() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
 }
 
 // ── Type detection ────────────────────────────────────────────────────────────
@@ -73,7 +106,8 @@ function shuffleOptions(opts, ans) {
 }
 
 // ── Topic selection ───────────────────────────────────────────────────────────
-function showTopicSelect() {
+function showTopicSelect(savedState) {
+  clearState();
   document.getElementById('progressBar').style.width = '0%';
   const topics = getUniqueTopics(allQuestions);
 
@@ -84,8 +118,16 @@ function showTopicSelect() {
     </button>`;
   }).join('');
 
+  const resumeBanner = savedState ? `
+    <div class="resume-banner">
+      <p>You have a quiz in progress (Question ${savedState.current + 1} of ${savedState.activeQuestions.length}). Resume where you left off?</p>
+      <button class="resume-btn" id="resumeBtn">Resume Quiz</button>
+      <button class="discard-btn" id="discardBtn">Start Fresh</button>
+    </div>` : '';
+
   const container = document.getElementById('quizBody');
   container.innerHTML = `
+    ${resumeBanner}
     <div class="topic-select" id="topicSelectList">
       <p class="topic-select-label">Choose a topic to practise, or test yourself on everything</p>
       <button class="topic-select-btn all-btn" data-topic="__all__">
@@ -100,6 +142,11 @@ function showTopicSelect() {
     if (!btn) return;
     startQuiz(decodeURIComponent(btn.dataset.topic));
   });
+
+  if (savedState) {
+    document.getElementById('resumeBtn').addEventListener('click', () => resumeQuiz(savedState));
+    document.getElementById('discardBtn').addEventListener('click', () => showTopicSelect());
+  }
 }
 
 function startQuiz(topic) {
@@ -112,11 +159,21 @@ function startQuiz(topic) {
     topicScores[k].total++;
   });
   current = 0; score = 0; answered = false;
+  userAnswers = [];
   render();
 }
 
-// keep window reference for legacy inline callers (none in new engine, but
-// guarded here so external scripts calling window.__startQuiz__ still work)
+function resumeQuiz(state) {
+  activeQuestions = state.activeQuestions;
+  current         = state.current;
+  score           = state.score;
+  topicScores     = state.topicScores;
+  userAnswers     = state.userAnswers || [];
+  answered        = false;
+  render();
+}
+
+// keep window reference for any external callers
 window.__startQuiz__ = startQuiz;
 
 // ── Master render ─────────────────────────────────────────────────────────────
@@ -129,6 +186,7 @@ function render() {
   if      (type === 'match') renderMatch(q);
   else if (type === 'input') renderInput(q);
   else                       renderChoice(q);
+  saveState();
 }
 
 const nextLabel = () =>
@@ -186,7 +244,8 @@ function choose(i) {
   const fb = document.getElementById('feedback');
   const tk = getTopicKey(q.topic);
   document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
-  if (i === _shuffledAns) {
+  const isRight = (i === _shuffledAns);
+  if (isRight) {
     document.getElementById('opt' + i).classList.add('correct');
     fb.className = 'feedback correct';
     fb.innerHTML = '✅ Correct! ' + q.exp;
@@ -199,6 +258,13 @@ function choose(i) {
   }
   fb.style.display = 'block';
   document.getElementById('nextBtn').style.display = 'block';
+  userAnswers.push({
+    qIdx: current,
+    isCorrect: isRight,
+    givenLabel: _shuffledOpts[i],
+    correctLabel: _shuffledOpts[Array.isArray(_shuffledAns) ? _shuffledAns[0] : _shuffledAns],
+  });
+  saveState();
 }
 
 function submitMulti() {
@@ -230,6 +296,15 @@ function submitMulti() {
   }
   fb.style.display = 'block';
   document.getElementById('nextBtn').style.display = 'block';
+  const correctLabels = [...correct].map(i => _shuffledOpts[i]).join(', ');
+  const givenLabels   = selected.size ? [...selected].map(i => _shuffledOpts[i]).join(', ') : '(none)';
+  userAnswers.push({
+    qIdx: current,
+    isCorrect: allRight,
+    givenLabel: givenLabels,
+    correctLabel: correctLabels,
+  });
+  saveState();
 }
 
 // ── MATCH render ──────────────────────────────────────────────────────────────
@@ -275,11 +350,15 @@ function submitMatch() {
   document.getElementById('submitBtn').disabled = true;
 
   let allRight = true;
+  const givenParts   = [];
+  const correctParts = [];
   q.pairs.forEach((p, i) => {
     const sel     = document.getElementById('msel' + i);
     const chosen  = parseInt(sel.value);
     const correct = _matchDescs.indexOf(p.match) + 1;
     sel.disabled = true;
+    givenParts.push(`${p.term} → ${chosen || '?'}`);
+    correctParts.push(`${p.term} → ${correct}`);
     if (chosen === correct) {
       sel.classList.add('match-correct');
     } else {
@@ -298,6 +377,13 @@ function submitMatch() {
   }
   fb.style.display = 'block';
   document.getElementById('nextBtn').style.display = 'block';
+  userAnswers.push({
+    qIdx: current,
+    isCorrect: allRight,
+    givenLabel: givenParts.join('; '),
+    correctLabel: correctParts.join('; '),
+  });
+  saveState();
 }
 
 // ── INPUT render ──────────────────────────────────────────────────────────────
@@ -343,6 +429,13 @@ function submitInput() {
   }
   fb.style.display = 'block';
   document.getElementById('nextBtn').style.display = 'block';
+  userAnswers.push({
+    qIdx: current,
+    isCorrect: isRight,
+    givenLabel: input.value.trim(),
+    correctLabel: valid.join(' / '),
+  });
+  saveState();
 }
 
 // ── Next / Results ────────────────────────────────────────────────────────────
@@ -353,6 +446,7 @@ function next() {
 }
 
 function showResults() {
+  clearState();
   document.getElementById('progressBar').style.width = '100%';
   const pct   = Math.round((score / activeQuestions.length) * 100);
   const emoji = pct >= 80 ? '🏆' : pct >= 60 ? '👍' : '📖';
@@ -378,10 +472,92 @@ function showResults() {
         <h3>📊 BREAKDOWN BY TOPIC</h3>
         ${breakdown}
       </div>
-      <button class="restart-btn" id="backBtn">← Back to Topics</button>
+      <button class="restart-btn" id="reviewBtn">📝 Review Answers</button>
+      <button class="restart-btn" id="backBtn" style="margin-top:8px">← Back to Topics</button>
     </div>`;
+  document.getElementById('reviewBtn').addEventListener('click', showReview);
   document.getElementById('backBtn').addEventListener('click', showTopicSelect);
 }
+
+// ── Answer review ─────────────────────────────────────────────────────────────
+function showReview() {
+  const answeredCount = userAnswers.length;
+  const skippedCount  = activeQuestions.length - answeredCount;
+
+  const items = activeQuestions.map((q, i) => {
+    const ua = userAnswers.find(a => a.qIdx === i);
+    if (!ua) {
+      return `<div class="review-item review-skipped">
+        <span class="review-badge skipped">⏭ Skipped</span>
+        <div class="review-meta">${q.topic} — Q${i + 1}</div>
+        <div class="review-q">${q.q}</div>
+      </div>`;
+    }
+    const cls = ua.isCorrect ? 'review-correct' : 'review-wrong';
+    const badge = ua.isCorrect
+      ? '<span class="review-badge correct">✅ Correct</span>'
+      : '<span class="review-badge wrong">❌ Wrong</span>';
+    const answerLines = ua.isCorrect
+      ? `<div class="review-answer correct-answer">Your answer: ${ua.givenLabel}</div>`
+      : `<div class="review-answer wrong-answer">Your answer: ${ua.givenLabel}</div>
+         <div class="review-answer correct-answer">Correct answer: ${ua.correctLabel}</div>`;
+    return `<div class="review-item ${cls}">
+      ${badge}
+      <div class="review-meta">${q.topic} — Q${i + 1}</div>
+      <div class="review-q">${q.q}</div>
+      ${answerLines}
+      <div class="review-exp">${q.exp}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('quizBody').innerHTML = `
+    <div class="review-header">
+      <h2>📝 Answer Review</h2>
+      <p>${answeredCount} answered · ${skippedCount > 0 ? skippedCount + ' skipped · ' : ''}${score} correct</p>
+    </div>
+    <div class="review-list">${items}</div>
+    <button class="review-back-btn" id="reviewBackBtn">← Back to Results</button>`;
+
+  document.getElementById('reviewBackBtn').addEventListener('click', showResults);
+}
+
+// ── Keyboard navigation ───────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  // Don't intercept when typing in an input
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+  const nextBtn   = document.getElementById('nextBtn');
+  const submitBtn = document.getElementById('submitBtn');
+
+  // Enter — submit or advance
+  if (e.key === 'Enter') {
+    if (nextBtn && nextBtn.style.display !== 'none') {
+      nextBtn.click(); return;
+    }
+    if (submitBtn && !submitBtn.disabled) {
+      submitBtn.click(); return;
+    }
+  }
+
+  // Number keys 1–9 and letter keys A–Z — select an option
+  const q = activeQuestions[current];
+  if (!q || answered) return;
+  const type = getType(q);
+
+  let idx = -1;
+  if (e.key >= '1' && e.key <= '9') {
+    idx = parseInt(e.key) - 1;
+  } else if (e.key.length === 1 && e.key.match(/[a-zA-Z]/)) {
+    idx = e.key.toUpperCase().charCodeAt(0) - 65; // A=0, B=1, …
+  }
+
+  if (idx >= 0 && (type === 'single' || type === 'multi')) {
+    const btn = document.getElementById('opt' + idx);
+    if (btn && !btn.disabled) {
+      btn.click();
+    }
+  }
+});
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 window.__showTopicSelect__ = showTopicSelect;
