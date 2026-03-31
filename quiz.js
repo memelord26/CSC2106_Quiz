@@ -61,21 +61,28 @@ function showTopicSelect() {
 
   const topicButtons = topics.map(t => {
     const count = allQ.filter(q => q.topic === t).length;
-    const safe  = t.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    return `<button class="topic-select-btn" onclick="window.__startQuiz__('${safe}')">
+    return `<button class="topic-select-btn" data-topic="${encodeURIComponent(t)}">
       ${t}<span style="float:right;color:#666;font-size:0.8rem;">${count}q</span>
     </button>`;
   }).join('');
 
-  document.getElementById('quizBody').innerHTML = `
-    <div class="topic-select">
+  const container = document.getElementById('quizBody');
+  container.innerHTML = `
+    <div class="topic-select" id="topicSelectList">
       <p class="topic-select-label">Choose a topic to practise, or test yourself on everything</p>
-      <button class="topic-select-btn all-btn" onclick="window.__startQuiz__('__all__')">
+      <button class="topic-select-btn all-btn" data-topic="__all__">
         ⚡ All Topics
         <span style="float:right;color:#a78bfa88;font-size:0.8rem;">${allQ.length}q</span>
       </button>
       ${topicButtons}
     </div>`;
+
+  document.getElementById('topicSelectList').addEventListener('click', e => {
+    const btn = e.target.closest('[data-topic]');
+    if (!btn) return;
+    const topic = decodeURIComponent(btn.dataset.topic);
+    window.__startQuiz__(topic);
+  });
 }
 
 window.__startQuiz__ = function(topic) {

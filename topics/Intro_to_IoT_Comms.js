@@ -1,9 +1,4 @@
-// topics/topic1.js
-// ✏️ EDIT: Replace with your own questions.
-// Rules:
-//   - Keep "topic" identical for all questions in this file
-//   - ans is the 0-based index of the correct option in opts[]
-//   - Options are automatically shuffled each time a question is shown
+// topics/Intro_to_IoT_Comms.js
 
 window.__QUIZ_QUESTIONS__ = window.__QUIZ_QUESTIONS__ || [];
 window.__QUIZ_QUESTIONS__.push(
