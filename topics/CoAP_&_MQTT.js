@@ -126,9 +126,9 @@ window.__QUIZ_QUESTIONS__.push(
   {
     topic: "CoAP & MQTT",
     q: "What is the default port number for MQTT?",
-    opts: ["8080", "8883", "80", "1833"],
+    opts: ["8080", "8883", "80", "1883"],
     ans: 3,
-    exp: "The default MQTT port is 1833 (unencrypted). Port 8883 is used for MQTT over TLS/SSL."
+    exp: "The default MQTT port is 1883 (unencrypted). Port 8883 is used for MQTT over TLS/SSL."
   },
   {
     topic: "CoAP & MQTT",
