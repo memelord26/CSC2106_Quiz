@@ -49,7 +49,7 @@ window.__QUIZ_QUESTIONS__.push(
   {
     topic: "Bluetooth",
     q: "What is the maximum data rate of latest BLE?",
-    opts: ["2 Mbps", "3 Mbps", "4 Mbps5", "1 Mbps"],
+    opts: ["2 Mbps", "3 Mbps", "4 Mbps", "1 Mbps"],
     ans: 0,
     exp: "The latest BLE (Bluetooth 5.x) supports a maximum data rate of 2 Mbps using the LE 2M PHY mode."
   },
