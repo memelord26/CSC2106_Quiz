@@ -1,4 +1,4 @@
-// topics/topic2.js
+// topics/HTTP_&_REST.js
 
 window.__QUIZ_QUESTIONS__ = window.__QUIZ_QUESTIONS__ || [];
 window.__QUIZ_QUESTIONS__.push(
