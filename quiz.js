@@ -1,353 +1,893 @@
-// quiz.js — core engine. No edits needed here.
+// quiz.js — Vue 3 IoT Quiz App (CDN ESM, no build step)
+import { createApp, ref, reactive, computed, nextTick, onMounted, onUnmounted } from 'vue'
 
-window.__QUIZ_QUESTIONS__ = window.__QUIZ_QUESTIONS__ || [];
+// ── Constants ────────────────────────────────────────────────────────────────
+const STORAGE_KEY = 'iotQuizState'
 
-let activeQuestions = [];
-let current = 0, score = 0, answered = false;
-let topicScores = {};
-
-// per-question shuffle state
-let _shuffledOpts = [];
-let _shuffledAns  = null;   // number | number[]
-let _matchDescs   = [];     // shuffled description texts for "match" questions
-
-// ── Type detection ────────────────────────────────────────────────────────────
-// type: "match"  → matching dropdowns
-// type: "input"  → free-text / number entry
-// Array ans      → multi-select checkboxes   (legacy: no type field needed)
-// number ans     → single-select             (legacy: no type field needed)
-function getType(q) {
-  if (q.type === 'match')  return 'match';
-  if (q.type === 'input')  return 'input';
-  if (Array.isArray(q.ans)) return 'multi';
-  return 'single';
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function getTopicKey(t) { return t.split(':')[0].trim(); }
-
-function getUniqueTopics(pool) {
-  const seen = new Set();
-  return pool.reduce((acc, q) => {
-    if (!seen.has(q.topic)) { seen.add(q.topic); acc.push(q.topic); }
-    return acc;
-  }, []);
-}
-
+// ── Helpers ──────────────────────────────────────────────────────────────────
 function fisherYates(arr) {
-  const a = [...arr];
+  const a = [...arr]
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
+    [a[i], a[j]] = [a[j], a[i]]
   }
-  return a;
+  return a
 }
 
 function shuffleOptions(opts, ans) {
-  const ansArr = Array.isArray(ans) ? ans : [ans];
-  const paired = opts.map((text, i) => ({ text, orig: i }));
-  const shuffled = fisherYates(paired);
+  const ansArr = Array.isArray(ans) ? ans : [ans]
+  const paired = opts.map((text, i) => ({ text, orig: i }))
+  const shuffled = fisherYates(paired)
   const newAns = Array.isArray(ans)
-    ? shuffled.reduce((acc, p, i) => { if (ansArr.includes(p.orig)) acc.push(i); return acc; }, [])
-    : shuffled.findIndex(p => p.orig === ans);
-  return { opts: shuffled.map(p => p.text), ans: newAns };
+    ? shuffled.reduce((acc, p, i) => { if (ansArr.includes(p.orig)) acc.push(i); return acc }, [])
+    : shuffled.findIndex(p => p.orig === ans)
+  return { opts: shuffled.map(p => p.text), ans: newAns }
 }
 
-// ── Topic selection ───────────────────────────────────────────────────────────
-function showTopicSelect() {
-  const allQ = window.__QUIZ_QUESTIONS__ || [];
-  document.getElementById('progressBar').style.width = '0%';
-  const topics = getUniqueTopics(allQ);
-
-  const topicButtons = topics.map(t => {
-    const count = allQ.filter(q => q.topic === t).length;
-    return `<button class="topic-select-btn" data-topic="${encodeURIComponent(t)}">
-      ${t}<span style="float:right;color:#666;font-size:0.8rem;">${count}q</span>
-    </button>`;
-  }).join('');
-
-  const container = document.getElementById('quizBody');
-  container.innerHTML = `
-    <div class="topic-select" id="topicSelectList">
-      <p class="topic-select-label">Choose a topic to practise, or test yourself on everything</p>
-      <button class="topic-select-btn all-btn" data-topic="__all__">
-        ⚡ All Topics
-        <span style="float:right;color:#a78bfa88;font-size:0.8rem;">${allQ.length}q</span>
-      </button>
-      ${topicButtons}
-    </div>`;
-
-  document.getElementById('topicSelectList').addEventListener('click', e => {
-    const btn = e.target.closest('[data-topic]');
-    if (!btn) return;
-    const topic = decodeURIComponent(btn.dataset.topic);
-    window.__startQuiz__(topic);
-  });
+function getType(q) {
+  if (q.type === 'match') return 'match'
+  if (q.type === 'input') return 'input'
+  if (Array.isArray(q.ans)) return 'multi'
+  return 'single'
 }
 
-window.__startQuiz__ = function(topic) {
-  const allQ = window.__QUIZ_QUESTIONS__ || [];
-  const pool = topic === '__all__' ? [...allQ] : allQ.filter(q => q.topic === topic);
-  activeQuestions = fisherYates(pool);
-  topicScores = {};
-  activeQuestions.forEach(q => {
-    const k = getTopicKey(q.topic);
-    if (!topicScores[k]) topicScores[k] = { correct: 0, total: 0 };
-    topicScores[k].total++;
-  });
-  current = 0; score = 0; answered = false;
-  render();
-};
+function getTopicKey(t) { return t.split(':')[0].trim() }
 
-// ── Master render ─────────────────────────────────────────────────────────────
-function render() {
-  const q   = activeQuestions[current];
-  const pct = (current / activeQuestions.length) * 100;
-  document.getElementById('progressBar').style.width = pct + '%';
-  answered = false;
-  const type = getType(q);
-  if      (type === 'match') renderMatch(q);
-  else if (type === 'input') renderInput(q);
-  else                       renderChoice(q);
+function saveState(data) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) } catch (_) {}
+}
+function loadState() {
+  try { const r = localStorage.getItem(STORAGE_KEY); return r ? JSON.parse(r) : null } catch (_) { return null }
+}
+function clearState() {
+  try { localStorage.removeItem(STORAGE_KEY) } catch (_) {}
 }
 
-const nextLabel = () =>
-  current === activeQuestions.length - 1 ? '🎉 See Results' : 'Next Question →';
+// ── App ──────────────────────────────────────────────────────────────────────
+const App = {
+  setup() {
+    // ── Core state ─────────────────────────────────────────────────────────
+    const screen = ref('loading')       // loading | topic | quiz | results | review
+    const errorMsg = ref('')
+    const allQuestions = ref([])
+    const activeQuestions = ref([])
+    const current = ref(0)
+    const score = ref(0)
+    const answered = ref(false)
+    const topicScores = reactive({})
+    const userAnswers = ref([])
 
-function questionHeader(q, badge) {
-  return `
-    <div class="topic-badge">${q.topic}</div>
-    <div class="question-num">Question ${current + 1} of ${activeQuestions.length}</div>
-    <div class="question-text">${q.q}</div>
-    ${badge || ''}`;
-}
+    // Per-question shuffle state
+    const shuffledOpts = ref([])
+    const shuffledAns = ref(null)
+    const matchDescs = ref([])
 
-// ── SINGLE / MULTI render ─────────────────────────────────────────────────────
-function renderChoice(q) {
-  const type = getType(q);
-  const sh   = shuffleOptions(q.opts, q.ans);
-  _shuffledOpts = sh.opts;
-  _shuffledAns  = sh.ans;
-  const multi = type === 'multi';
-  const badge = multi ? '<span class="type-badge multi-badge">☑ Select all that apply</span>' : '';
+    // Match validation
+    const matchSelections = ref([])
 
-  document.getElementById('quizBody').innerHTML = `
-    ${questionHeader(q, badge)}
-    <div class="options" id="options">
-      ${_shuffledOpts.map((o, i) =>
-        `<button class="option-btn" onclick="window.__choose__(${i})" id="opt${i}">
-          <span class="letter">${multi ? '☐' : String.fromCharCode(65 + i)}</span>${o}
-        </button>`
-      ).join('')}
-    </div>
-    <div class="feedback" id="feedback"></div>
-    ${multi ? `<button class="submit-btn" id="submitBtn" onclick="window.__submitMulti__()">Submit Answer</button>` : ''}
-    <button class="next-btn" id="nextBtn" onclick="window.__next__()">${nextLabel()}</button>`;
-}
+    // Multi-select tracking
+    const multiSelected = ref(new Set())
 
-window.__choose__ = function(i) {
-  const q = activeQuestions[current];
-  if (getType(q) === 'multi') {
-    const btn = document.getElementById('opt' + i);
-    const sel = btn.classList.toggle('selected');
-    btn.querySelector('.letter').textContent = sel ? '☑' : '☐';
-    return;
-  }
-  if (answered) return;
-  answered = true;
-  const fb = document.getElementById('feedback');
-  const tk = getTopicKey(q.topic);
-  document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
-  if (i === _shuffledAns) {
-    document.getElementById('opt' + i).classList.add('correct');
-    fb.className = 'feedback correct';
-    fb.innerHTML = '✅ Correct! ' + q.exp;
-    score++; topicScores[tk].correct++;
-  } else {
-    document.getElementById('opt' + i).classList.add('wrong');
-    document.getElementById('opt' + _shuffledAns).classList.add('reveal');
-    fb.className = 'feedback wrong';
-    fb.innerHTML = '❌ Not quite. ' + q.exp;
-  }
-  fb.style.display = 'block';
-  document.getElementById('nextBtn').style.display = 'block';
-};
+    // Input state
+    const inputValue = ref('')
 
-window.__submitMulti__ = function() {
-  if (answered) return;
-  answered = true;
-  const q       = activeQuestions[current];
-  const correct = new Set(_shuffledAns);
-  const fb      = document.getElementById('feedback');
-  const tk      = getTopicKey(q.topic);
-  const selected = new Set(
-    [...document.querySelectorAll('.option-btn.selected')]
-      .map(b => parseInt(b.id.replace('opt', '')))
-  );
-  document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
-  document.getElementById('submitBtn').disabled = true;
-  let allRight = true;
-  for (let i = 0; i < _shuffledOpts.length; i++) {
-    const btn = document.getElementById('opt' + i);
-    btn.querySelector('.letter').textContent = correct.has(i) ? '☑' : '☐';
-    if (correct.has(i) && selected.has(i))   btn.classList.add('correct');
-    else if (!correct.has(i) && selected.has(i)) { btn.classList.add('wrong');  allRight = false; }
-    else if (correct.has(i) && !selected.has(i)) { btn.classList.add('reveal'); allRight = false; }
-  }
-  if (allRight) {
-    fb.className = 'feedback correct'; fb.innerHTML = '✅ Correct! ' + q.exp;
-    score++; topicScores[tk].correct++;
-  } else {
-    fb.className = 'feedback wrong'; fb.innerHTML = '❌ Not quite. ' + q.exp;
-  }
-  fb.style.display = 'block';
-  document.getElementById('nextBtn').style.display = 'block';
-};
+    // Nav expand/collapse
+    const showNav = ref(false)
 
-// ── MATCH render ──────────────────────────────────────────────────────────────
-function renderMatch(q) {
-  // Shuffle the descriptions and remember order for evaluation
-  _matchDescs = fisherYates(q.pairs.map(p => p.match));
-  const nums  = _matchDescs.map((_, i) => i + 1);
+    // Review state
+    const reviewPage = ref(0)
 
-  const leftRows = q.pairs.map((p, i) => {
-    const opts = nums.map(n => `<option value="${n}">${n}</option>`).join('');
-    return `<div class="match-row">
-      <select class="match-select" id="msel${i}">
-        <option value="">—</option>
-        ${opts}
-      </select>
-      <span class="match-term">${p.term}</span>
-    </div>`;
-  }).join('');
+    // Shortcut overlay
+    const showShortcuts = ref(false)
 
-  const rightRows = _matchDescs.map((d, i) =>
-    `<div class="match-desc-row"><span class="match-num">${i + 1}.</span><span>${d}</span></div>`
-  ).join('');
+    // Resume state
+    const savedState = ref(null)
 
-  document.getElementById('quizBody').innerHTML = `
-    ${questionHeader(q, '<span class="type-badge match-badge">🔗 Match each term</span>')}
-    <div class="match-container">
-      <div class="match-left">${leftRows}</div>
-      <div class="match-right">${rightRows}</div>
-    </div>
-    <div class="feedback" id="feedback"></div>
-    <button class="submit-btn" id="submitBtn" onclick="window.__submitMatch__()">Submit Answer</button>
-    <button class="next-btn" id="nextBtn" onclick="window.__next__()">${nextLabel()}</button>`;
-}
+    // ── Computed ────────────────────────────────────────────────────────────
+    const currentQuestion = computed(() => activeQuestions.value[current.value])
+    const questionType = computed(() => currentQuestion.value ? getType(currentQuestion.value) : null)
+    const isLastQuestion = computed(() => current.value === activeQuestions.value.length - 1)
+    const resultPct = computed(() => activeQuestions.value.length ? Math.round((score.value / activeQuestions.value.length) * 100) : 0)
+    const resultMsg = computed(() => resultPct.value >= 80 ? 'Excellent work!' : resultPct.value >= 60 ? 'Good effort!' : 'Keep reviewing!')
+    const resultIcon = computed(() => resultPct.value >= 80 ? 'fa-solid fa-trophy' : resultPct.value >= 60 ? 'fa-solid fa-thumbs-up' : 'fa-solid fa-book')
 
-window.__submitMatch__ = function() {
-  if (answered) return;
-  answered = true;
-  const q  = activeQuestions[current];
-  const fb = document.getElementById('feedback');
-  const tk = getTopicKey(q.topic);
-  document.getElementById('submitBtn').disabled = true;
+    // Topics list
+    const topics = computed(() => {
+      const seen = new Set()
+      return allQuestions.value.reduce((acc, q) => {
+        if (!seen.has(q.topic)) { seen.add(q.topic); acc.push(q.topic) }
+        return acc
+      }, [])
+    })
 
-  let allRight = true;
-  q.pairs.forEach((p, i) => {
-    const sel     = document.getElementById('msel' + i);
-    const chosen  = parseInt(sel.value);                        // 1-based number user picked
-    const correct = _matchDescs.indexOf(p.match) + 1;          // 1-based correct number
-    sel.disabled = true;
-    if (chosen === correct) {
-      sel.classList.add('match-correct');
-    } else {
-      sel.classList.add('match-wrong');
-      // show correct answer as tooltip-style label
-      const row = sel.closest('.match-row');
-      row.insertAdjacentHTML('beforeend',
-        `<span class="match-hint">→ ${correct}</span>`);
-      allRight = false;
+    // Topic breakdown
+    const topicBreakdown = computed(() => Object.entries(topicScores))
+
+    // Nav pill summary counts — single pass
+    const navSummary = computed(() => {
+      const total = activeQuestions.value.length
+      const { correct, wrong } = userAnswers.value.reduce(
+        (acc, a) => { a.isCorrect ? acc.correct++ : acc.wrong++; return acc },
+        { correct: 0, wrong: 0 }
+      )
+      return { total, correct, wrong, pending: Math.max(0, total - correct - wrong) }
+    })
+
+    // Match validation — computed
+    const matchDuplicates = computed(() => {
+      const vals = matchSelections.value.filter(v => v !== '')
+      const counts = {}
+      vals.forEach(v => { counts[v] = (counts[v] || 0) + 1 })
+      return new Set(Object.keys(counts).filter(k => counts[k] > 1))
+    })
+    const matchValid = computed(() => {
+      if (!currentQuestion.value || questionType.value !== 'match') return false
+      const pairs = currentQuestion.value.pairs
+      if (matchSelections.value.length !== pairs.length) return false
+      if (matchSelections.value.some(v => v === '')) return false
+      return matchDuplicates.value.size === 0
+    })
+    const matchStatusText = computed(() => {
+      if (!currentQuestion.value || questionType.value !== 'match') return ''
+      const pairs = currentQuestion.value.pairs
+      const filled = matchSelections.value.filter(v => v !== '').length
+      if (filled === 0) return ''
+      if (matchDuplicates.value.size > 0) return 'Duplicate selections detected'
+      if (filled < pairs.length) return `${filled} of ${pairs.length} matched`
+      return 'All matched — ready to submit'
+    })
+
+    // Review: current review question data
+    const reviewQuestion = computed(() => {
+      if (reviewPage.value < 0 || reviewPage.value >= activeQuestions.value.length) return null
+      return activeQuestions.value[reviewPage.value]
+    })
+    const reviewAnswer = computed(() => {
+      return userAnswers.value.find(a => a.qIdx === reviewPage.value) || null
+    })
+
+    // ── Persistence ────────────────────────────────────────────────────────
+    function persistState() {
+      if (screen.value !== 'quiz') return
+      saveState({
+        activeQuestions: activeQuestions.value,
+        current: current.value,
+        score: score.value,
+        topicScores: { ...topicScores },
+        userAnswers: userAnswers.value,
+      })
     }
-  });
 
-  if (allRight) {
-    fb.className = 'feedback correct'; fb.innerHTML = '✅ All matched correctly! ' + q.exp;
-    score++; topicScores[tk].correct++;
-  } else {
-    fb.className = 'feedback wrong'; fb.innerHTML = '❌ Not quite. ' + q.exp;
-  }
-  fb.style.display = 'block';
-  document.getElementById('nextBtn').style.display = 'block';
-};
+    // ── Bootstrap ──────────────────────────────────────────────────────────
+    async function loadTopics() {
+      screen.value = 'loading'
+      errorMsg.value = ''
+      try {
+        const manifest = await fetch('topics/index.json').then(r => r.json())
+        const topicFiles = await Promise.all(
+          manifest.topics.map(slug => fetch(`topics/${slug}.json`).then(r => r.json()))
+        )
+        allQuestions.value = topicFiles.flatMap(file =>
+          file.questions.map(q => ({ ...q, topic: file.topic }))
+        )
+      } catch (err) {
+        errorMsg.value = err.message
+        screen.value = 'loading'
+        return
+      }
 
-// ── INPUT render ──────────────────────────────────────────────────────────────
-function renderInput(q) {
-  document.getElementById('quizBody').innerHTML = `
-    ${questionHeader(q, '<span class="type-badge input-badge">✏️ Type your answer</span>')}
-    <div class="input-wrap">
-      <input type="text" id="ansInput" class="ans-input" placeholder="Your answer…"
-             onkeydown="if(event.key==='Enter') window.__submitInput__()"/>
+      const saved = loadState()
+      if (saved) {
+        savedState.value = saved
+      }
+      screen.value = 'topic'
+    }
+
+    // ── Quiz lifecycle ─────────────────────────────────────────────────────
+    function startQuiz(topic) {
+      clearState()
+      const pool = topic === '__all__' ? [...allQuestions.value] : allQuestions.value.filter(q => q.topic === topic)
+      activeQuestions.value = fisherYates(pool)
+
+      // Reset topicScores reactively
+      Object.keys(topicScores).forEach(k => delete topicScores[k])
+      activeQuestions.value.forEach(q => {
+        const k = getTopicKey(q.topic)
+        if (!topicScores[k]) topicScores[k] = { correct: 0, total: 0 }
+        topicScores[k].total++
+      })
+
+      current.value = 0
+      score.value = 0
+      answered.value = false
+      userAnswers.value = []
+      savedState.value = null
+      showNav.value = false
+      screen.value = 'quiz'
+      prepareQuestion()
+    }
+
+    function resumeQuiz() {
+      const state = savedState.value
+      if (!state) return
+      activeQuestions.value = state.activeQuestions
+      current.value = state.current
+      score.value = state.score
+
+      Object.keys(topicScores).forEach(k => delete topicScores[k])
+      Object.entries(state.topicScores).forEach(([k, v]) => { topicScores[k] = v })
+
+      userAnswers.value = state.userAnswers || []
+      answered.value = false
+      savedState.value = null
+      screen.value = 'quiz'
+      prepareQuestion()
+    }
+
+    function discardSaved() {
+      clearState()
+      savedState.value = null
+    }
+
+    function focusInput() {
+      // Double nextTick: first for Vue to process state changes, second for DOM render
+      nextTick(() => nextTick(() => {
+        const inp = document.querySelector('.ans-input')
+        if (inp) { inp.focus(); inp.classList.add('autofocused') }
+      }))
+    }
+
+    function prepareQuestion() {
+      const q = activeQuestions.value[current.value]
+      if (!q) return
+      const type = getType(q)
+
+      // Always re-shuffle — fresh order every time you land on a question
+      if (type === 'single' || type === 'multi') {
+        const sh = shuffleOptions(q.opts, q.ans)
+        shuffledOpts.value = sh.opts
+        shuffledAns.value = sh.ans
+        multiSelected.value = new Set()
+      } else if (type === 'match') {
+        matchDescs.value = fisherYates(q.pairs.map(p => p.match))
+        matchSelections.value = q.pairs.map(() => '')
+      } else if (type === 'input') {
+        inputValue.value = ''
+      }
+
+      // Mark as answered if the user already submitted this question this session
+      answered.value = !!userAnswers.value.find(a => a.qIdx === current.value)
+
+      if (type === 'input' && !answered.value) focusInput()
+    }
+
+    function topicCount(topic) {
+      return allQuestions.value.filter(q => q.topic === topic).length
+    }
+
+    // ── Single choice ──────────────────────────────────────────────────────
+    function chooseSingle(idx) {
+      if (answered.value) return
+      answered.value = true
+      const q = currentQuestion.value
+      const tk = getTopicKey(q.topic)
+      const isRight = idx === shuffledAns.value
+      if (isRight) { score.value++; topicScores[tk].correct++ }
+      userAnswers.value.push({
+        qIdx: current.value,
+        isCorrect: isRight,
+        givenIdx: idx,                  // store raw index for reliable optionClass lookup
+        givenLabel: shuffledOpts.value[idx],
+        correctLabel: shuffledOpts.value[Array.isArray(shuffledAns.value) ? shuffledAns.value[0] : shuffledAns.value],
+      })
+      persistState()
+    }
+
+    // ── Multi choice ───────────────────────────────────────────────────────
+    function toggleMulti(idx) {
+      if (answered.value) return
+      const s = new Set(multiSelected.value)
+      if (s.has(idx)) s.delete(idx)
+      else s.add(idx)
+      multiSelected.value = s
+    }
+
+    function submitMulti() {
+      if (answered.value) return
+      answered.value = true
+      const q = currentQuestion.value
+      const tk = getTopicKey(q.topic)
+      const correct = new Set(shuffledAns.value)
+      const selected = multiSelected.value
+      let allRight = true
+      for (let i = 0; i < shuffledOpts.value.length; i++) {
+        if (correct.has(i) && !selected.has(i)) allRight = false
+        if (!correct.has(i) && selected.has(i)) allRight = false
+      }
+      if (allRight) { score.value++; topicScores[tk].correct++ }
+      const correctLabels = [...correct].map(i => shuffledOpts.value[i]).join(', ')
+      const givenLabels = selected.size ? [...selected].map(i => shuffledOpts.value[i]).join(', ') : '(none)'
+      userAnswers.value.push({
+        qIdx: current.value,
+        isCorrect: allRight,
+        givenLabel: givenLabels,
+        correctLabel: correctLabels,
+      })
+      persistState()
+    }
+
+    // ── Match ──────────────────────────────────────────────────────────────
+    function submitMatch() {
+      if (answered.value || !matchValid.value) return
+      answered.value = true
+      const q = currentQuestion.value
+      const tk = getTopicKey(q.topic)
+      let allRight = true
+      const givenParts = []
+      const correctParts = []
+      const pairResults = []
+      q.pairs.forEach((p, i) => {
+        const chosen = parseInt(matchSelections.value[i])
+        const correct = matchDescs.value.indexOf(p.match) + 1
+        const pairOk = chosen === correct
+        givenParts.push(`${p.term} \u2192 ${chosen || '?'}`)
+        correctParts.push(`${p.term} \u2192 ${correct}`)
+        pairResults.push(pairOk)
+        if (!pairOk) allRight = false
+      })
+      if (allRight) { score.value++; topicScores[tk].correct++ }
+      // Store correct numbers at submit-time so hints survive re-shuffle on revisit
+      const correctNums = q.pairs.map(p => matchDescs.value.indexOf(p.match) + 1)
+      userAnswers.value.push({
+        qIdx: current.value,
+        isCorrect: allRight,
+        givenLabel: givenParts.join('; '),
+        correctLabel: correctParts.join('; '),
+        pairResults,
+        correctNums,
+      })
+      persistState()
+    }
+
+    function matchCorrectNum(pairIdx) {
+      if (!answered.value) return null
+      const ua = userAnswers.value.find(a => a.qIdx === current.value)
+      if (ua && ua.correctNums) return ua.correctNums[pairIdx]
+      // Fallback: derive from current matchDescs (only valid immediately after submit)
+      const q = currentQuestion.value
+      return matchDescs.value.indexOf(q.pairs[pairIdx].match) + 1
+    }
+
+    function isMatchCorrect(pairIdx) {
+      if (!answered.value) return null
+      const ua = userAnswers.value.find(a => a.qIdx === current.value)
+      if (!ua || !ua.pairResults) return null
+      return ua.pairResults[pairIdx] ?? null
+    }
+
+    // ── Input ──────────────────────────────────────────────────────────────
+    function submitInput() {
+      if (answered.value || !inputValue.value.trim()) return
+      answered.value = true
+      const q = currentQuestion.value
+      const tk = getTopicKey(q.topic)
+      const valid = Array.isArray(q.ans) ? q.ans : [q.ans]
+      const given = inputValue.value.trim().toLowerCase()
+      const isRight = valid.some(a => a.toString().trim().toLowerCase() === given)
+      if (isRight) { score.value++; topicScores[tk].correct++ }
+      userAnswers.value.push({
+        qIdx: current.value,
+        isCorrect: isRight,
+        givenLabel: inputValue.value.trim(),
+        correctLabel: valid.join(' / '),
+      })
+      persistState()
+    }
+
+    // ── Navigation ─────────────────────────────────────────────────────────
+    function jumpToQuestion(idx) {
+      if (idx < 0 || idx >= activeQuestions.value.length) return
+      current.value = idx
+      showNav.value = false   // auto-collapse after picking a question
+      prepareQuestion()
+    }
+
+    function nextQuestion() {
+      const next = current.value + 1
+      if (next >= activeQuestions.value.length) {
+        clearState()
+        screen.value = 'results'
+      } else {
+        jumpToQuestion(next)
+      }
+    }
+
+    function goToResults() {
+      screen.value = 'results'
+    }
+
+    function goToReview() {
+      reviewPage.value = 0
+      screen.value = 'review'
+    }
+
+    function goToTopics() {
+      screen.value = 'topic'
+    }
+
+    function setReviewPage(idx) {
+      reviewPage.value = idx
+    }
+
+    function reviewPrev() {
+      if (reviewPage.value > 0) reviewPage.value--
+    }
+
+    function reviewNext() {
+      if (reviewPage.value < activeQuestions.value.length - 1) reviewPage.value++
+    }
+
+    // ── Quiz nav dot class ─────────────────────────────────────────────────
+    function quizNavDotClass(idx) {
+      const ua = userAnswers.value.find(a => a.qIdx === idx)
+      let cls = 'qdot'
+      if (idx === current.value) cls += ' qdot-active'
+      if (!ua) cls += ' qdot-pending'
+      else if (ua.isCorrect) cls += ' qdot-correct'
+      else cls += ' qdot-wrong'
+      return cls
+    }
+
+    // ── Review dot class ───────────────────────────────────────────────────
+    function dotClass(idx) {
+      const ua = userAnswers.value.find(a => a.qIdx === idx)
+      let cls = 'rdot'
+      if (!ua) cls += ' rdot-skipped'
+      else if (ua.isCorrect) cls += ' rdot-correct'
+      else cls += ' rdot-wrong'
+      if (idx === reviewPage.value) cls += ' rdot-active'
+      return cls
+    }
+
+    // ── Feedback helpers for template ──────────────────────────────────────
+    const feedbackCorrect = computed(() => {
+      if (!answered.value) return false
+      const ua = userAnswers.value.find(a => a.qIdx === current.value)
+      return ua ? ua.isCorrect : false
+    })
+
+    // For single choice: classify button state
+    function optionClass(idx) {
+      let cls = 'option-btn'
+      const type = questionType.value
+      if (type === 'multi') {
+        if (multiSelected.value.has(idx)) cls += ' selected'
+        if (answered.value) {
+          const correct = new Set(shuffledAns.value)
+          if (correct.has(idx) && multiSelected.value.has(idx)) cls += ' correct'
+          else if (!correct.has(idx) && multiSelected.value.has(idx)) cls += ' wrong'
+          else if (correct.has(idx) && !multiSelected.value.has(idx)) cls += ' reveal'
+        }
+      } else if (type === 'single' && answered.value) {
+        const ua = userAnswers.value.find(a => a.qIdx === current.value)
+        if (ua) {
+          if (idx === shuffledAns.value && ua.isCorrect) cls += ' correct'
+          else if (idx === shuffledAns.value && !ua.isCorrect) cls += ' reveal'
+          else if (idx === ua.givenIdx && !ua.isCorrect) cls += ' wrong'
+        }
+      }
+      return cls
+    }
+
+    function letterLabel(idx) {
+      const type = questionType.value
+      if (type === 'multi') {
+        if (answered.value) {
+          const correct = new Set(shuffledAns.value)
+          return correct.has(idx) ? '\u2611' : '\u2610'
+        }
+        return multiSelected.value.has(idx) ? '\u2611' : '\u2610'
+      }
+      return String.fromCharCode(65 + idx)
+    }
+
+    // ── Keyboard handler ───────────────────────────────────────────────────
+    function onKeydown(e) {
+      // Skip if typing in input/select (but allow Enter to submit in input fields)
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') {
+        if (e.key === 'Enter' && e.target.tagName === 'INPUT' && screen.value === 'quiz' && questionType.value === 'input') {
+          submitInput()
+        }
+        return
+      }
+
+      // ? — toggle shortcut overlay
+      if (e.key === '?') {
+        showShortcuts.value = !showShortcuts.value
+        return
+      }
+
+      // Escape — close overlay, or back from review to results
+      if (e.key === 'Escape') {
+        if (showShortcuts.value) { showShortcuts.value = false; return }
+        if (screen.value === 'review') { screen.value = 'results'; return }
+        return
+      }
+
+      // Review screen arrow keys
+      if (screen.value === 'review') {
+        if (e.key === 'ArrowLeft')  { e.preventDefault(); reviewPrev(); return }
+        if (e.key === 'ArrowRight') { e.preventDefault(); reviewNext(); return }
+        return
+      }
+
+      // Quiz screen
+      if (screen.value !== 'quiz') return
+
+      // Arrow keys — navigate between questions
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        jumpToQuestion(current.value - 1)
+        return
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        if (answered.value) {
+          // On last question, go to results; otherwise jump forward
+          if (current.value === activeQuestions.value.length - 1) nextQuestion()
+          else jumpToQuestion(current.value + 1)
+        }
+        return
+      }
+
+      // Enter — submit or advance
+      if (e.key === 'Enter') {
+        if (answered.value) { nextQuestion(); return }
+        if (questionType.value === 'multi') { submitMulti(); return }
+        if (questionType.value === 'match') { submitMatch(); return }
+        if (questionType.value === 'input') { submitInput(); return }
+        return
+      }
+
+      // Number/letter keys — select option
+      if (answered.value) return
+      const type = questionType.value
+      if (type !== 'single' && type !== 'multi') return
+
+      let idx = -1
+      if (e.key >= '1' && e.key <= '9') {
+        idx = parseInt(e.key) - 1
+      } else if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+        idx = e.key.toUpperCase().charCodeAt(0) - 65
+      }
+
+      if (idx >= 0 && idx < shuffledOpts.value.length) {
+        if (type === 'single') chooseSingle(idx)
+        else toggleMulti(idx)
+      }
+    }
+
+    // ── Lifecycle ──────────────────────────────────────────────────────────
+    onMounted(() => {
+      document.addEventListener('keydown', onKeydown)
+      loadTopics()
+    })
+    onUnmounted(() => {
+      document.removeEventListener('keydown', onKeydown)
+    })
+
+    // ── Return ─────────────────────────────────────────────────────────────
+    return {
+      // State
+      screen, errorMsg, allQuestions, activeQuestions, current, score, answered,
+      topicScores, userAnswers, shuffledOpts, shuffledAns, matchDescs,
+      matchSelections, multiSelected, inputValue, reviewPage, showShortcuts, savedState,
+      showNav,
+      // Computed
+      currentQuestion, questionType, isLastQuestion,
+      resultPct, resultMsg, resultIcon, topics, topicBreakdown, navSummary,
+      matchDuplicates, matchValid, matchStatusText,
+      reviewQuestion, reviewAnswer, feedbackCorrect,
+      // Methods
+      loadTopics, startQuiz, resumeQuiz, discardSaved, chooseSingle, toggleMulti, submitMulti,
+      submitMatch, matchCorrectNum, isMatchCorrect, submitInput,
+      nextQuestion, jumpToQuestion, goToResults, goToReview, goToTopics,
+      setReviewPage, reviewPrev, reviewNext,
+      dotClass, quizNavDotClass, optionClass, letterLabel, topicCount,
+    }
+  },
+
+  template: /* html */ `
+<div class="quiz-container">
+  <!-- Header -->
+  <div class="header">
+    <h1><i class="fa-solid fa-bolt"></i> IoT Quiz</h1>
+    <p>Test your knowledge of IoT communication protocols</p>
+  </div>
+
+  <!-- Quiz question navigator — collapsible pill -->
+  <div v-if="screen === 'quiz'" class="qnav-wrap">
+    <!-- Pill toggle button -->
+    <button class="qnav-pill" @click="showNav = !showNav" :class="{ open: showNav }">
+      <span class="qnav-pill-pos">Q{{ current + 1 }} <span class="qnav-pill-sep">/</span> {{ activeQuestions.length }}</span>
+      <span class="qnav-pill-dots">
+        <span v-if="navSummary.correct > 0" class="qnav-pip pip-correct" :style="{ width: (navSummary.correct / navSummary.total * 48) + 'px' }"></span>
+        <span v-if="navSummary.wrong > 0"   class="qnav-pip pip-wrong"   :style="{ width: (navSummary.wrong   / navSummary.total * 48) + 'px' }"></span>
+        <span v-if="navSummary.pending > 0" class="qnav-pip pip-pending" :style="{ width: (navSummary.pending / navSummary.total * 48) + 'px' }"></span>
+      </span>
+      <i class="fa-solid fa-chevron-down qnav-chevron"></i>
+    </button>
+
+    <!-- Expanded dot grid -->
+    <div v-if="showNav" class="qnav-grid">
+      <button v-for="(q, idx) in activeQuestions" :key="idx"
+        :class="quizNavDotClass(idx)"
+        :title="'Question ' + (idx + 1)"
+        @click="jumpToQuestion(idx)">{{ idx + 1 }}</button>
     </div>
-    <div class="feedback" id="feedback"></div>
-    <button class="submit-btn" id="submitBtn" onclick="window.__submitInput__()">Submit Answer</button>
-    <button class="next-btn" id="nextBtn" onclick="window.__next__()">${nextLabel()}</button>`;
-  document.getElementById('ansInput').focus();
-}
+  </div>
 
-window.__submitInput__ = function() {
-  if (answered) return;
-  const input = document.getElementById('ansInput');
-  if (!input.value.trim()) return;
-  answered = true;
-  const q      = activeQuestions[current];
-  const fb     = document.getElementById('feedback');
-  const tk     = getTopicKey(q.topic);
-  const valid  = Array.isArray(q.ans) ? q.ans : [q.ans];
-  const given  = input.value.trim().toLowerCase();
-  const isRight = valid.some(a => a.toString().trim().toLowerCase() === given);
-  input.disabled = true;
-  document.getElementById('submitBtn').disabled = true;
-  if (isRight) {
-    input.classList.add('input-correct');
-    fb.className = 'feedback correct'; fb.innerHTML = '✅ Correct! ' + q.exp;
-    score++; topicScores[tk].correct++;
-  } else {
-    input.classList.add('input-wrong');
-    const display = valid.join(' or ');
-    fb.className = 'feedback wrong';
-    fb.innerHTML = `❌ Not quite. The correct answer is <strong>${display}</strong>. ${q.exp}`;
-  }
-  fb.style.display = 'block';
-  document.getElementById('nextBtn').style.display = 'block';
-};
+  <!-- ═══════════════════ LOADING SCREEN ═══════════════════ -->
+  <div v-if="screen === 'loading' && !errorMsg" class="loading">
+    <i class="fa-solid fa-spinner fa-spin"></i> Loading questions...
+  </div>
+  <div v-if="screen === 'loading' && errorMsg" class="error-msg">
+    <i class="fa-solid fa-circle-xmark"></i> Failed to load questions. Make sure you are serving this via a web server.
+    <small>{{ errorMsg }}</small>
+    <button class="retry-btn" @click="loadTopics"><i class="fa-solid fa-rotate-right"></i> Retry</button>
+  </div>
 
-// ── Next / Results ────────────────────────────────────────────────────────────
-window.__next__ = function() {
-  current++;
-  if (current >= activeQuestions.length) showResults();
-  else render();
-};
+  <!-- ═══════════════════ TOPIC SELECT ═══════════════════ -->
+  <div v-if="screen === 'topic'">
+    <!-- Resume banner -->
+    <div v-if="savedState" class="resume-banner">
+      <p>You have a quiz in progress (Question {{ savedState.current + 1 }} of {{ savedState.activeQuestions.length }}). Resume where you left off?</p>
+      <button class="resume-btn" @click="resumeQuiz"><i class="fa-solid fa-play"></i> Resume Quiz</button>
+      <button class="discard-btn" @click="discardSaved"><i class="fa-solid fa-rotate-left"></i> Start Fresh</button>
+    </div>
 
-function showResults() {
-  document.getElementById('progressBar').style.width = '100%';
-  const pct   = Math.round((score / activeQuestions.length) * 100);
-  const emoji = pct >= 80 ? '🏆' : pct >= 60 ? '👍' : '📖';
-  const msg   = pct >= 80 ? 'Excellent work!' : pct >= 60 ? 'Good effort!' : 'Keep reviewing!';
-  const breakdown = Object.entries(topicScores).map(([k, v]) =>
-    `<div class="topic-score">
-       <span class="ts-name">${k}</span>
-       <span class="ts-val">${v.correct}/${v.total}</span>
-     </div>`
-  ).join('');
-  document.getElementById('quizBody').innerHTML = `
+    <div class="topic-select">
+      <p class="topic-select-label">Choose a topic to practise, or test yourself on everything</p>
+      <button class="topic-select-btn all-btn" @click="startQuiz('__all__')">
+        <span><i class="fa-solid fa-bolt"></i> All Topics</span>
+        <span class="topic-count">{{ allQuestions.length }}q</span>
+      </button>
+      <button v-for="t in topics" :key="t" class="topic-select-btn" @click="startQuiz(t)">
+        <span>{{ t }}</span>
+        <span class="topic-count">{{ topicCount(t) }}q</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ QUIZ SCREEN ═══════════════════ -->
+  <div v-if="screen === 'quiz' && currentQuestion">
+    <!-- Question chrome -->
+    <div class="topic-badge">{{ currentQuestion.topic }}</div>
+    <div class="question-num">Question {{ current + 1 }} of {{ activeQuestions.length }}</div>
+    <div class="question-text">{{ currentQuestion.q }}</div>
+
+    <!-- Type badge -->
+    <span v-if="questionType === 'multi'" class="type-badge multi-badge">
+      <i class="fa-solid fa-square-check"></i> Select all that apply
+    </span>
+    <span v-if="questionType === 'match'" class="type-badge match-badge">
+      <i class="fa-solid fa-link"></i> Match each term
+    </span>
+    <span v-if="questionType === 'input'" class="type-badge input-badge">
+      <i class="fa-solid fa-pencil"></i> Type your answer
+    </span>
+
+    <!-- ─── SINGLE / MULTI OPTIONS ─── -->
+    <div v-if="questionType === 'single' || questionType === 'multi'" class="options">
+      <button v-for="(opt, idx) in shuffledOpts" :key="idx"
+        :class="optionClass(idx)"
+        :disabled="answered && (questionType === 'single' || questionType === 'multi')"
+        @click="questionType === 'single' ? chooseSingle(idx) : toggleMulti(idx)">
+        <span class="letter">{{ letterLabel(idx) }}</span>{{ opt }}
+      </button>
+    </div>
+
+    <!-- ─── MATCH LAYOUT ─── -->
+    <div v-if="questionType === 'match'">
+      <div class="match-container">
+        <div class="match-left">
+          <div v-for="(pair, i) in currentQuestion.pairs" :key="i" class="match-row">
+            <select class="match-select"
+              :class="{
+                'match-duplicate': !answered && matchDuplicates.has(matchSelections[i]),
+                'match-correct': answered && isMatchCorrect(i),
+                'match-wrong': answered && isMatchCorrect(i) === false
+              }"
+              :disabled="answered"
+              v-model="matchSelections[i]">
+              <option value="">\u2014</option>
+              <option v-for="n in currentQuestion.pairs.length" :key="n" :value="String(n)">{{ n }}</option>
+            </select>
+            <span class="match-term">{{ pair.term }}</span>
+            <span v-if="answered && !isMatchCorrect(i)" class="match-hint">\u2192 {{ matchCorrectNum(i) }}</span>
+          </div>
+        </div>
+        <div class="match-right">
+          <div v-for="(desc, i) in matchDescs" :key="i" class="match-desc-row">
+            <span class="match-num">{{ i + 1 }}.</span>
+            <span>{{ desc }}</span>
+          </div>
+        </div>
+      </div>
+      <!-- v-show keeps height reserved so card doesn't shift when status appears/disappears -->
+      <div v-show="!answered && matchStatusText" class="match-status" :class="{ valid: matchValid, invalid: !matchValid }">
+        {{ matchStatusText }}
+      </div>
+    </div>
+
+    <!-- ─── INPUT ─── -->
+    <div v-if="questionType === 'input'" class="input-wrap">
+      <input type="text" class="ans-input" placeholder="Your answer..."
+        v-model="inputValue" :disabled="answered"
+        :class="{ 'input-correct': answered && feedbackCorrect, 'input-wrong': answered && !feedbackCorrect }"
+        @keydown.enter="submitInput" />
+    </div>
+
+    <!-- feedback: visibility:hidden keeps full layout space reserved, no card jump -->
+    <div class="feedback" :class="feedbackCorrect ? 'correct' : 'wrong'"
+      :style="{ visibility: answered ? 'visible' : 'hidden' }">
+      <template v-if="feedbackCorrect">
+        <i class="fa-solid fa-circle-check"></i> Correct! {{ currentQuestion.exp }}
+      </template>
+      <template v-else>
+        <i class="fa-solid fa-circle-xmark"></i> Not quite.
+        <template v-if="questionType === 'input'">
+          The correct answer is <strong>{{ (Array.isArray(currentQuestion.ans) ? currentQuestion.ans : [currentQuestion.ans]).join(' or ') }}</strong>.
+        </template>
+        {{ currentQuestion.exp }}
+      </template>
+    </div>
+
+    <!-- Submit (multi / match / input) -->
+    <button v-if="questionType === 'multi' && !answered" class="submit-btn" @click="submitMulti">
+      <i class="fa-solid fa-paper-plane"></i> Submit Answer
+    </button>
+    <button v-if="questionType === 'match' && !answered" class="submit-btn"
+      :disabled="!matchValid" @click="submitMatch">
+      <i class="fa-solid fa-paper-plane"></i> Submit Answer
+    </button>
+    <button v-if="questionType === 'input' && !answered" class="submit-btn" @click="submitInput">
+      <i class="fa-solid fa-paper-plane"></i> Submit Answer
+    </button>
+
+    <!-- Next -->
+    <button v-if="answered" class="next-btn" @click="nextQuestion">
+      <template v-if="isLastQuestion"><i class="fa-solid fa-flag-checkered"></i> See Results</template>
+      <template v-else>Next Question <i class="fa-solid fa-arrow-right"></i></template>
+    </button>
+
+    <!-- Shortcut strip -->
+    <div class="shortcut-strip">
+      <button @click="showShortcuts = true">
+        <i class="fa-solid fa-keyboard"></i> Press <kbd>?</kbd> for shortcuts
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ RESULTS SCREEN ═══════════════════ -->
+  <div v-if="screen === 'results'">
     <div class="score-card">
-      <h2>${emoji} Quiz Complete!</h2>
-      <div class="score-big">${pct}%</div>
-      <div class="score-label">${msg} You got ${score} out of ${activeQuestions.length} correct.</div>
+      <h2><i :class="resultIcon"></i> Quiz Complete!</h2>
+      <div class="score-big">{{ resultPct }}%</div>
+      <div class="score-label">{{ resultMsg }} You got {{ score }} out of {{ activeQuestions.length }} correct.</div>
       <div class="stats-row">
-        <div class="stat-box"><div class="sv">${score}</div><div class="sl">Correct</div></div>
-        <div class="stat-box"><div class="sv">${activeQuestions.length - score}</div><div class="sl">Incorrect</div></div>
-        <div class="stat-box"><div class="sv">${pct}%</div><div class="sl">Score</div></div>
+        <div class="stat-box correct-stat"><div class="sv">{{ score }}</div><div class="sl">Correct</div></div>
+        <div class="stat-box wrong-stat"><div class="sv">{{ activeQuestions.length - score }}</div><div class="sl">Incorrect</div></div>
+        <div class="stat-box"><div class="sv">{{ resultPct }}%</div><div class="sl">Score</div></div>
       </div>
       <div class="score-breakdown">
-        <h3>📊 BREAKDOWN BY TOPIC</h3>
-        ${breakdown}
+        <h3><i class="fa-solid fa-chart-bar"></i> BREAKDOWN BY TOPIC</h3>
+        <div v-for="([k, v]) in topicBreakdown" :key="k" class="topic-score">
+          <span class="ts-name">{{ k }}</span>
+          <span class="ts-val">{{ v.correct }}/{{ v.total }}</span>
+        </div>
       </div>
-      <button class="restart-btn" onclick="window.__showTopicSelect__()">← Back to Topics</button>
-    </div>`;
+      <button class="restart-btn" @click="goToReview">
+        <i class="fa-solid fa-pen-to-square"></i> Review Answers
+      </button>
+      <button class="restart-btn" @click="goToTopics" style="margin-top:8px">
+        <i class="fa-solid fa-arrow-left"></i> Back to Topics
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ REVIEW SCREEN ═══════════════════ -->
+  <div v-if="screen === 'review'">
+    <div class="review-header">
+      <h2><i class="fa-solid fa-pen-to-square"></i> Answer Review</h2>
+      <p>{{ userAnswers.length }} answered
+        <template v-if="activeQuestions.length - userAnswers.length > 0">&middot; {{ activeQuestions.length - userAnswers.length }} skipped</template>
+        &middot; {{ score }} correct
+      </p>
+    </div>
+
+    <!-- Dot grid -->
+    <div class="review-dots">
+      <button v-for="(q, idx) in activeQuestions" :key="idx"
+        :class="dotClass(idx)"
+        @click="setReviewPage(idx)">
+        {{ idx + 1 }}
+      </button>
+    </div>
+
+    <!-- Detail panel -->
+    <div v-if="reviewQuestion" class="review-detail-panel">
+      <div class="review-nav-row">
+        <button class="review-nav-btn" :disabled="reviewPage === 0" @click="reviewPrev">
+          <i class="fa-solid fa-arrow-left"></i> Prev
+        </button>
+        <span class="review-page-num">{{ reviewPage + 1 }} / {{ activeQuestions.length }}</span>
+        <button class="review-nav-btn" :disabled="reviewPage === activeQuestions.length - 1" @click="reviewNext">
+          Next <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+
+      <!-- Badge -->
+      <template v-if="!reviewAnswer">
+        <span class="review-badge skipped"><i class="fa-solid fa-forward-step"></i> Skipped</span>
+      </template>
+      <template v-else-if="reviewAnswer.isCorrect">
+        <span class="review-badge correct"><i class="fa-solid fa-circle-check"></i> Correct</span>
+      </template>
+      <template v-else>
+        <span class="review-badge wrong"><i class="fa-solid fa-circle-xmark"></i> Wrong</span>
+      </template>
+
+      <div class="review-meta">{{ reviewQuestion.topic }} &mdash; Q{{ reviewPage + 1 }}</div>
+      <div class="review-q">{{ reviewQuestion.q }}</div>
+
+      <template v-if="reviewAnswer">
+        <div v-if="reviewAnswer.isCorrect" class="review-answer correct-answer">
+          <i class="fa-solid fa-circle-check"></i> Your answer: {{ reviewAnswer.givenLabel }}
+        </div>
+        <template v-else>
+          <div class="review-answer wrong-answer">
+            <i class="fa-solid fa-circle-xmark"></i> Your answer: {{ reviewAnswer.givenLabel }}
+          </div>
+          <div class="review-answer correct-answer">
+            <i class="fa-solid fa-circle-check"></i> Correct answer: {{ reviewAnswer.correctLabel }}
+          </div>
+        </template>
+      </template>
+
+      <div class="review-exp"><i class="fa-solid fa-lightbulb"></i> {{ reviewQuestion.exp }}</div>
+    </div>
+
+    <button class="review-back-btn" @click="goToResults">
+      <i class="fa-solid fa-arrow-left"></i> Back to Results
+    </button>
+  </div>
+
+  <!-- ═══════════════════ SHORTCUT OVERLAY ═══════════════════ -->
+  <div v-if="showShortcuts" class="shortcut-overlay" @click.self="showShortcuts = false">
+    <div class="shortcut-card">
+      <h3><i class="fa-solid fa-keyboard"></i> Keyboard Shortcuts</h3>
+      <div class="shortcut-columns">
+        <div class="shortcut-section">
+          <h4>Quiz</h4>
+          <div class="shortcut-row"><kbd>A</kbd>-<kbd>Z</kbd> Select option</div>
+          <div class="shortcut-row"><kbd>1</kbd>-<kbd>9</kbd> Select by number</div>
+          <div class="shortcut-row"><kbd>Enter</kbd> Submit / Next</div>
+          <div class="shortcut-row"><kbd>\u2190</kbd> Previous question</div>
+          <div class="shortcut-row"><kbd>\u2192</kbd> Next (if answered)</div>
+        </div>
+        <div class="shortcut-section">
+          <h4>Review</h4>
+          <div class="shortcut-row"><kbd>\u2190</kbd> Previous question</div>
+          <div class="shortcut-row"><kbd>\u2192</kbd> Next question</div>
+          <div class="shortcut-row"><kbd>Esc</kbd> Back to results</div>
+        </div>
+      </div>
+      <button class="shortcut-close" @click="showShortcuts = false">Close <kbd>?</kbd></button>
+    </div>
+  </div>
+</div>
+`
 }
 
-window.__showTopicSelect__ = showTopicSelect;
-requestAnimationFrame(() => showTopicSelect());
+createApp(App).mount('#app')
