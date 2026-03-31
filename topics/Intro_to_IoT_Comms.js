@@ -85,7 +85,7 @@ window.__QUIZ_QUESTIONS__.push(
     topic: "Intro to IoT Comms",
     q: "Which choice represents the ultimate aim for IoT?",
     opts: ["To transform raw data into insights", "To collect as much data as possible", "To connect as many 'things' together", "To reduce network bandwidth"],
-    ans: 2,
+    ans: 1,
     exp: "The ultimate aim for IoT is to connect as many 'things' together, enabling communication and interaction between devices to create a more interconnected and intelligent environment."
   },
 );
