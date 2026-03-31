@@ -3,26 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- ✏️ EDIT: Change the page/tab title -->
 <title>IoT Quiz</title>
 <link rel="icon" type="image/png" href="iot.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
-<div class="quiz-container">
-  <div class="header">
-    <!-- ✏️ EDIT: Quiz title and subtitle -->
-    <h1>📚 IoT Quiz</h1>
-    <p>find ur test location under grades in xsite</p>
-  </div>
-  <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
-  <div id="quizBody"></div>
-</div>
 
-<!--
-  ✏️ To add or reorder topics, edit topics/index.json.
-  Each entry is the filename slug (without .json) inside the topics/ folder.
--->
+<script type="importmap">
+{
+  "imports": {
+    "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.prod.js"
+  }
+}
+</script>
+
+<div id="app" v-cloak></div>
+
 <script type="module" src="quiz.js"></script>
 </body>
 </html>
