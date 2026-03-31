@@ -1,0 +1,15 @@
+{
+  "topics": [
+    "intro_to_iot_comms",
+    "http_rest",
+    "coap_mqtt",
+    "wireless_mesh",
+    "lora_lorawan",
+    "aiot_cloud",
+    "bluetooth",
+    "wifi_halow",
+    "cellular_iot",
+    "802154_thread",
+    "zigbee_zwave"
+  ]
+}

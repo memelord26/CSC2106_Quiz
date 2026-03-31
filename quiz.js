@@ -1,8 +1,8 @@
-// quiz.js — core engine. No edits needed here.
+// quiz.js — core engine
 
-window.__QUIZ_QUESTIONS__ = window.__QUIZ_QUESTIONS__ || [];
-
-let activeQuestions = [];
+// ── State ─────────────────────────────────────────────────────────────────────
+let allQuestions    = [];   // flat pool of every question (topic field injected)
+let activeQuestions = [];   // current quiz subset, shuffled
 let current = 0, score = 0, answered = false;
 let topicScores = {};
 
@@ -11,15 +11,34 @@ let _shuffledOpts = [];
 let _shuffledAns  = null;   // number | number[]
 let _matchDescs   = [];     // shuffled description texts for "match" questions
 
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+async function loadTopics() {
+  document.getElementById('quizBody').innerHTML =
+    '<p style="text-align:center;color:#888;padding:40px 0;">Loading questions…</p>';
+  try {
+    const manifest = await fetch('topics/index.json').then(r => r.json());
+    const topicFiles = await Promise.all(
+      manifest.topics.map(slug => fetch(`topics/${slug}.json`).then(r => r.json()))
+    );
+    allQuestions = topicFiles.flatMap(file =>
+      file.questions.map(q => ({ ...q, topic: file.topic }))
+    );
+  } catch (err) {
+    document.getElementById('quizBody').innerHTML =
+      `<p style="text-align:center;color:#ef4444;padding:40px 0;">
+        Failed to load questions. Make sure you are serving this via a web server.<br>
+        <small>${err.message}</small>
+      </p>`;
+    return;
+  }
+  showTopicSelect();
+}
+
 // ── Type detection ────────────────────────────────────────────────────────────
-// type: "match"  → matching dropdowns
-// type: "input"  → free-text / number entry
-// Array ans      → multi-select checkboxes   (legacy: no type field needed)
-// number ans     → single-select             (legacy: no type field needed)
 function getType(q) {
-  if (q.type === 'match')  return 'match';
-  if (q.type === 'input')  return 'input';
-  if (Array.isArray(q.ans)) return 'multi';
+  if (q.type === 'match')      return 'match';
+  if (q.type === 'input')      return 'input';
+  if (Array.isArray(q.ans))    return 'multi';
   return 'single';
 }
 
@@ -55,12 +74,11 @@ function shuffleOptions(opts, ans) {
 
 // ── Topic selection ───────────────────────────────────────────────────────────
 function showTopicSelect() {
-  const allQ = window.__QUIZ_QUESTIONS__ || [];
   document.getElementById('progressBar').style.width = '0%';
-  const topics = getUniqueTopics(allQ);
+  const topics = getUniqueTopics(allQuestions);
 
   const topicButtons = topics.map(t => {
-    const count = allQ.filter(q => q.topic === t).length;
+    const count = allQuestions.filter(q => q.topic === t).length;
     return `<button class="topic-select-btn" data-topic="${encodeURIComponent(t)}">
       ${t}<span style="float:right;color:#666;font-size:0.8rem;">${count}q</span>
     </button>`;
@@ -72,7 +90,7 @@ function showTopicSelect() {
       <p class="topic-select-label">Choose a topic to practise, or test yourself on everything</p>
       <button class="topic-select-btn all-btn" data-topic="__all__">
         ⚡ All Topics
-        <span style="float:right;color:#a78bfa88;font-size:0.8rem;">${allQ.length}q</span>
+        <span style="float:right;color:#a78bfa88;font-size:0.8rem;">${allQuestions.length}q</span>
       </button>
       ${topicButtons}
     </div>`;
@@ -80,14 +98,12 @@ function showTopicSelect() {
   document.getElementById('topicSelectList').addEventListener('click', e => {
     const btn = e.target.closest('[data-topic]');
     if (!btn) return;
-    const topic = decodeURIComponent(btn.dataset.topic);
-    window.__startQuiz__(topic);
+    startQuiz(decodeURIComponent(btn.dataset.topic));
   });
 }
 
-window.__startQuiz__ = function(topic) {
-  const allQ = window.__QUIZ_QUESTIONS__ || [];
-  const pool = topic === '__all__' ? [...allQ] : allQ.filter(q => q.topic === topic);
+function startQuiz(topic) {
+  const pool = topic === '__all__' ? [...allQuestions] : allQuestions.filter(q => q.topic === topic);
   activeQuestions = fisherYates(pool);
   topicScores = {};
   activeQuestions.forEach(q => {
@@ -97,7 +113,11 @@ window.__startQuiz__ = function(topic) {
   });
   current = 0; score = 0; answered = false;
   render();
-};
+}
+
+// keep window reference for legacy inline callers (none in new engine, but
+// guarded here so external scripts calling window.__startQuiz__ still work)
+window.__startQuiz__ = startQuiz;
 
 // ── Master render ─────────────────────────────────────────────────────────────
 function render() {
@@ -135,17 +155,25 @@ function renderChoice(q) {
     ${questionHeader(q, badge)}
     <div class="options" id="options">
       ${_shuffledOpts.map((o, i) =>
-        `<button class="option-btn" onclick="window.__choose__(${i})" id="opt${i}">
+        `<button class="option-btn" data-idx="${i}" id="opt${i}">
           <span class="letter">${multi ? '☐' : String.fromCharCode(65 + i)}</span>${o}
         </button>`
       ).join('')}
     </div>
     <div class="feedback" id="feedback"></div>
-    ${multi ? `<button class="submit-btn" id="submitBtn" onclick="window.__submitMulti__()">Submit Answer</button>` : ''}
-    <button class="next-btn" id="nextBtn" onclick="window.__next__()">${nextLabel()}</button>`;
+    ${multi ? `<button class="submit-btn" id="submitBtn">Submit Answer</button>` : ''}
+    <button class="next-btn" id="nextBtn">${nextLabel()}</button>`;
+
+  document.getElementById('options').addEventListener('click', e => {
+    const btn = e.target.closest('.option-btn');
+    if (!btn) return;
+    choose(parseInt(btn.dataset.idx));
+  });
+  if (multi) document.getElementById('submitBtn').addEventListener('click', submitMulti);
+  document.getElementById('nextBtn').addEventListener('click', next);
 }
 
-window.__choose__ = function(i) {
+function choose(i) {
   const q = activeQuestions[current];
   if (getType(q) === 'multi') {
     const btn = document.getElementById('opt' + i);
@@ -171,9 +199,9 @@ window.__choose__ = function(i) {
   }
   fb.style.display = 'block';
   document.getElementById('nextBtn').style.display = 'block';
-};
+}
 
-window.__submitMulti__ = function() {
+function submitMulti() {
   if (answered) return;
   answered = true;
   const q       = activeQuestions[current];
@@ -182,7 +210,7 @@ window.__submitMulti__ = function() {
   const tk      = getTopicKey(q.topic);
   const selected = new Set(
     [...document.querySelectorAll('.option-btn.selected')]
-      .map(b => parseInt(b.id.replace('opt', '')))
+      .map(b => parseInt(b.dataset.idx))
   );
   document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
   document.getElementById('submitBtn').disabled = true;
@@ -190,7 +218,7 @@ window.__submitMulti__ = function() {
   for (let i = 0; i < _shuffledOpts.length; i++) {
     const btn = document.getElementById('opt' + i);
     btn.querySelector('.letter').textContent = correct.has(i) ? '☑' : '☐';
-    if (correct.has(i) && selected.has(i))   btn.classList.add('correct');
+    if (correct.has(i) && selected.has(i))        btn.classList.add('correct');
     else if (!correct.has(i) && selected.has(i)) { btn.classList.add('wrong');  allRight = false; }
     else if (correct.has(i) && !selected.has(i)) { btn.classList.add('reveal'); allRight = false; }
   }
@@ -202,11 +230,10 @@ window.__submitMulti__ = function() {
   }
   fb.style.display = 'block';
   document.getElementById('nextBtn').style.display = 'block';
-};
+}
 
 // ── MATCH render ──────────────────────────────────────────────────────────────
 function renderMatch(q) {
-  // Shuffle the descriptions and remember order for evaluation
   _matchDescs = fisherYates(q.pairs.map(p => p.match));
   const nums  = _matchDescs.map((_, i) => i + 1);
 
@@ -232,11 +259,14 @@ function renderMatch(q) {
       <div class="match-right">${rightRows}</div>
     </div>
     <div class="feedback" id="feedback"></div>
-    <button class="submit-btn" id="submitBtn" onclick="window.__submitMatch__()">Submit Answer</button>
-    <button class="next-btn" id="nextBtn" onclick="window.__next__()">${nextLabel()}</button>`;
+    <button class="submit-btn" id="submitBtn">Submit Answer</button>
+    <button class="next-btn" id="nextBtn">${nextLabel()}</button>`;
+
+  document.getElementById('submitBtn').addEventListener('click', submitMatch);
+  document.getElementById('nextBtn').addEventListener('click', next);
 }
 
-window.__submitMatch__ = function() {
+function submitMatch() {
   if (answered) return;
   answered = true;
   const q  = activeQuestions[current];
@@ -247,17 +277,15 @@ window.__submitMatch__ = function() {
   let allRight = true;
   q.pairs.forEach((p, i) => {
     const sel     = document.getElementById('msel' + i);
-    const chosen  = parseInt(sel.value);                        // 1-based number user picked
-    const correct = _matchDescs.indexOf(p.match) + 1;          // 1-based correct number
+    const chosen  = parseInt(sel.value);
+    const correct = _matchDescs.indexOf(p.match) + 1;
     sel.disabled = true;
     if (chosen === correct) {
       sel.classList.add('match-correct');
     } else {
       sel.classList.add('match-wrong');
-      // show correct answer as tooltip-style label
       const row = sel.closest('.match-row');
-      row.insertAdjacentHTML('beforeend',
-        `<span class="match-hint">→ ${correct}</span>`);
+      row.insertAdjacentHTML('beforeend', `<span class="match-hint">→ ${correct}</span>`);
       allRight = false;
     }
   });
@@ -270,23 +298,27 @@ window.__submitMatch__ = function() {
   }
   fb.style.display = 'block';
   document.getElementById('nextBtn').style.display = 'block';
-};
+}
 
 // ── INPUT render ──────────────────────────────────────────────────────────────
 function renderInput(q) {
   document.getElementById('quizBody').innerHTML = `
     ${questionHeader(q, '<span class="type-badge input-badge">✏️ Type your answer</span>')}
     <div class="input-wrap">
-      <input type="text" id="ansInput" class="ans-input" placeholder="Your answer…"
-             onkeydown="if(event.key==='Enter') window.__submitInput__()"/>
+      <input type="text" id="ansInput" class="ans-input" placeholder="Your answer…"/>
     </div>
     <div class="feedback" id="feedback"></div>
-    <button class="submit-btn" id="submitBtn" onclick="window.__submitInput__()">Submit Answer</button>
-    <button class="next-btn" id="nextBtn" onclick="window.__next__()">${nextLabel()}</button>`;
-  document.getElementById('ansInput').focus();
+    <button class="submit-btn" id="submitBtn">Submit Answer</button>
+    <button class="next-btn" id="nextBtn">${nextLabel()}</button>`;
+
+  const input = document.getElementById('ansInput');
+  input.focus();
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') submitInput(); });
+  document.getElementById('submitBtn').addEventListener('click', submitInput);
+  document.getElementById('nextBtn').addEventListener('click', next);
 }
 
-window.__submitInput__ = function() {
+function submitInput() {
   if (answered) return;
   const input = document.getElementById('ansInput');
   if (!input.value.trim()) return;
@@ -311,14 +343,14 @@ window.__submitInput__ = function() {
   }
   fb.style.display = 'block';
   document.getElementById('nextBtn').style.display = 'block';
-};
+}
 
 // ── Next / Results ────────────────────────────────────────────────────────────
-window.__next__ = function() {
+function next() {
   current++;
   if (current >= activeQuestions.length) showResults();
   else render();
-};
+}
 
 function showResults() {
   document.getElementById('progressBar').style.width = '100%';
@@ -331,7 +363,8 @@ function showResults() {
        <span class="ts-val">${v.correct}/${v.total}</span>
      </div>`
   ).join('');
-  document.getElementById('quizBody').innerHTML = `
+  const body = document.getElementById('quizBody');
+  body.innerHTML = `
     <div class="score-card">
       <h2>${emoji} Quiz Complete!</h2>
       <div class="score-big">${pct}%</div>
@@ -345,9 +378,11 @@ function showResults() {
         <h3>📊 BREAKDOWN BY TOPIC</h3>
         ${breakdown}
       </div>
-      <button class="restart-btn" onclick="window.__showTopicSelect__()">← Back to Topics</button>
+      <button class="restart-btn" id="backBtn">← Back to Topics</button>
     </div>`;
+  document.getElementById('backBtn').addEventListener('click', showTopicSelect);
 }
 
+// ── Init ──────────────────────────────────────────────────────────────────────
 window.__showTopicSelect__ = showTopicSelect;
-requestAnimationFrame(() => showTopicSelect());
+requestAnimationFrame(loadTopics);
