@@ -138,8 +138,8 @@
         "It is only suitable for large-scale applications",
         "It is limited by the processing power of IoT devices"
       ],
-      "ans": 1,
-      "exp": "The cost of integrating AI models, cloud infrastructure, and IoT hardware makes AIoT expensive to implement — this is a recognised limitation."
+      "ans": 3,
+      "exp": "AIoT applications can be limited by the processing power of IoT devices, which may struggle to run complex AI models locally. The other options are not inherent limitations of AIoT."
     },
     {
       "q": "Which of the following is a good example of an AIoT application?",
